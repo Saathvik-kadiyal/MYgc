@@ -1,84 +1,33 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Card from '../components/common/Card';
-import Button from '../components/common/Button';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CreatorTypePage = () => {
-  const [selectedType, setSelectedType] = useState(''); // Initial state is empty
   const navigate = useNavigate();
-
-  const handleContinue = () => {
-    if (selectedType) {
-      navigate('/signup', { 
-        state: { 
-          type: selectedType, 
-          isDisabled: true 
-        } 
-      });
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <Card>
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">Select Your Experience Level</h2>
-              <p className="mt-2 text-gray-600">Choose the option that best describes you</p>
-            </div>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full space-y-6">
+        <h1 className="text-3xl font-bold text-white text-center">Join UGC Platform</h1>
+        
+        <div className="grid grid-cols-1 gap-4">
+          <Link 
+            to="/signup" 
+            className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg text-center transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Join as Creator</h2>
+            <p className="text-sm mt-2">For content creators and influencers</p>
+          </Link>
+          
+          <Link 
+            to="/CompanySignup" 
+            className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg text-center transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Join as Company</h2>
+            <p className="text-sm mt-2">For brands and businesses</p>
+          </Link>
+        </div>
 
-            <div className="space-y-4">
-              <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="creatorType"
-                  value="experienced"
-                  checked={selectedType === 'experienced'}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                />
-                <div className="ml-3">
-                  <span className="block text-sm font-medium text-gray-900">Experienced Creator</span>
-                  <span className="block text-sm text-gray-500">I have previous experience creating content</span>
-                </div>
-              </label>
-
-              <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="creatorType"
-                  value="fresher"
-                  checked={selectedType === 'fresher'}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                />
-                <div className="ml-3">
-                  <span className="block text-sm font-medium text-gray-900">Fresher</span>
-                  <span className="block text-sm text-gray-500">I'm new to content creation</span>
-                </div>
-              </label>
-            </div>
-
-            <div className="flex space-x-4">
-              <Button
-                variant="primary"
-                fullWidth
-                onClick={() => navigate('/')}
-              >
-                Back
-              </Button>
-              <Button
-                variant="primary"
-                fullWidth
-                disabled={!selectedType}
-                onClick={handleContinue}
-              >
-                Continue
-              </Button>
-            </div>
-          </div>
-        </Card>
+        <div className="text-center text-white">
+          Already have an account? <Link to="/login" className="text-blue-400 hover:text-blue-300">Login</Link>
+        </div>
       </div>
     </div>
   );

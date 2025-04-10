@@ -9,7 +9,7 @@ exports.getUserProfile = async (req, res) => {
 
     const user = await User.findOne({ username })
       .select("-password -email") // Exclude password and email for security
-      .populate("category", "name") // Get category details
+      .populate("category", "type experience") // Get full category details
       .populate("connections", "username profilePicture") // Get connections
       .populate({
         path: "posts",

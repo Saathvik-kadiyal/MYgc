@@ -33,11 +33,17 @@ const LeftSidebar = () => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
       </svg>
     )},
-    { path: '/upload', label: 'Create Post', icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-      </svg>
-    )},
+    currentProfile?.role === 'company' ? 
+      { path: '/upload-job', label: 'Create Job', icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      )} : 
+      { path: '/upload', label: 'Create Post', icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      )},
     { path: '/profile', label: 'Profile', icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -63,19 +69,22 @@ const LeftSidebar = () => {
     <div className="p-4 space-y-4">
       {/* User Profile Summary */}
       {currentProfile && (
-        <div className="mb-6 p-4 border border-gray-700 rounded-lg bg-gray-800">
+        <Link to="/profile" className="block mb-6 p-4 border border-gray-700 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">
           <div className="flex items-center space-x-3">
-            <img 
-              src={currentProfile.profilePicture || '/default-avatar.png'} 
-              alt="Profile" 
-              className="w-12 h-12 rounded-full object-cover"
-            />
+            <div className="relative">
+              <img 
+                src={currentProfile.profilePicture || '/default-avatar.png'} 
+                alt="Profile" 
+                className="w-12 h-12 rounded-full object-cover"
+              />
+              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
+            </div>
             <div>
               <h3 className="text-white font-medium">{currentProfile.username}</h3>
               <p className="text-gray-400 text-sm">{currentProfile.userType || 'User'}</p>
             </div>
           </div>
-        </div>
+        </Link>
       )}
       
       {/* Navigation Items */}

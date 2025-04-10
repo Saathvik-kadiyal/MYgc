@@ -13,13 +13,17 @@ export const fetchCurrentUserProfile = createAsyncThunk(
         return state.user.currentProfile;
       }
       
-      // Get current user's username from auth state
+      // Get current user's info from auth state
       const authState = getState();
-      const username = authState.auth.user?.username;
-      if (!username) {
+      const user = authState.auth.user;
+      if (!user || !user._id) {
+        console.log('No authenticated user found in auth state');
         throw new Error('Not authenticated');
       }
-      const response = await api.get(`/users/${username}`);
+      
+      // Use user ID instead of username for more reliable lookup
+      const userId = user._id;
+      const response = await api.get(`/users/id/${userId}`);
       console.log(`Current user profile raw response: ${response}`, {
         status: response.status,
         data: response.data,

@@ -60,6 +60,7 @@ exports.initiateCompanySignup = async (req, res) => {
             username,
             password,
             role,
+            otp, // Store the generated OTP with company data
             expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
         });
         
@@ -81,22 +82,43 @@ exports.verifyCompanySignup = async (req, res) => {
     try {
         const { email, otp } = req.body;
         
-        // Verify OTP
-        const isValid = verifyOTP(email, otp);
-        if (!isValid) {
+        if (!email || !otp) {
             return res.status(400).json({ 
                 success: false, 
-                message: "Invalid or expired verification code" 
+                message: "Email and OTP are required" 
             });
         }
         
-        // Get company data from temporary store
+        // Get company data from temporary store first
         const companyData = tempCompanyStore.get(email);
-        if (!companyData || companyData.expiresAt < Date.now()) {
+        if (!companyData) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "No signup session found. Please start signup again." 
+            });
+        }
+
+        // Verify OTP using the centralized OTP store
+        if (!verifyOTP(email, otp)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid or expired verification code",
+                error: "OTP verification failed",
+                email,
+                accountType: "company"
+            });
+        }
+        
+        if (companyData.expiresAt < Date.now()) {
             tempCompanyStore.delete(email);
             return res.status(400).json({ 
                 success: false, 
-                message: "Signup session expired. Please try again." 
+                message: "Signup session expired. Please try again.",
+                details: {
+                    email,
+                    expiresAt: new Date(companyData.expiresAt).toISOString(),
+                    currentTime: new Date().toISOString()
+                }
             });
         }
         
@@ -109,6 +131,7 @@ exports.verifyCompanySignup = async (req, res) => {
             username: companyData.username,
             password: hashedPassword,
             role: companyData.role,
+            phoneNumber: companyData.phoneNumber || '', // Add phoneNumber with fallback
             jobPostings: [],
             connections: [],
             notifications: []
@@ -128,18 +151,28 @@ exports.verifyCompanySignup = async (req, res) => {
         res.status(201).json({ 
             success: true,
             message: "Company registered successfully",
-            company: {
+            user: {  // Changed from 'company' to 'user' to match authSlice expectations
                 id: newCompany._id,
                 email: newCompany.email,
                 username: newCompany.username,
                 role: newCompany.role
-            }
+            },
+            token  // Include the token in response
         });
     } catch (error) {
+        console.error('Company verification failed:', {
+            email: req.body.email,
+            otp: req.body.otp,
+            error: error.message,
+            stack: error.stack
+        });
         res.status(500).json({ 
             success: false,
             message: "Error during company verification", 
-            error: error.message 
+            error: error.message,
+            email: req.body.email,
+            accountType: "company",
+            otp: req.body.otp
         });
     }
 };

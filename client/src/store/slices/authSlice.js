@@ -1,16 +1,12 @@
-// src/store/slices/authSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
 
-// -------------------- Thunks --------------------
-
+// Thunks
 export const checkAuthStatus = createAsyncThunk(
   'auth/checkAuthStatus',
   async (_, { rejectWithValue }) => {
     try {
-      console.log('Fetching auth profile...');
       const res = await api.get('/auth/profile');
-      console.log('Auth profile response:', res.data);
       return res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Authentication failed');
@@ -18,12 +14,15 @@ export const checkAuthStatus = createAsyncThunk(
   }
 );
 
-export const manualLogin = createAsyncThunk(
-  'auth/manualLogin',
+export const login = createAsyncThunk(
+  'auth/login',
   async (credentials, { rejectWithValue }) => {
     try {
       const res = await api.post('/auth/login', credentials);
-      return res.data;
+      return {
+        ...res.data,
+        isCompany: res.data.isCompany || false
+      };
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Login failed');
     }
@@ -70,23 +69,71 @@ export const logout = createAsyncThunk(
   }
 );
 
-// -------------------- Initial State --------------------
+export const getUserProfile = createAsyncThunk(
+  'auth/getUserProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/auth/profile');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch user profile');
+    }
+  }
+);
 
-const initialState = {
-  user: null,
-  isAuthenticated: false,
-  loading: false,
-  error: null,
-  signupEmail: null,
-  signupData: null,
-  otpSent: false,
-};
+export const updateUserProfile = createAsyncThunk(
+  'auth/updateUserProfile',
+  async (formData, { rejectWithValue }) => {
+    try {
+      const response = await api.put('/auth/profile', formData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
+    }
+  }
+);
 
-// -------------------- Slice --------------------
+export const initiateCompanySignup = createAsyncThunk(
+  'auth/initiateCompanySignup', 
+  async (companyData, { rejectWithValue }) => {
+    try {
+      const res = await api.post('/auth/company/signup/initiate', companyData);
+      return {
+        ...res.data,
+        companyData,
+        email: companyData.email
+      };
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Company signup failed');
+    }
+  }
+);
 
+export const verifyCompanySignup = createAsyncThunk(
+  'auth/verifyCompanySignup',
+  async ({ email, otp }, { rejectWithValue }) => {
+    try {
+      const res = await api.post('/auth/company/signup/verify', { email, otp });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Company verification failed');
+    }
+  }
+);
+
+// Slice
 const authSlice = createSlice({
   name: 'auth',
-  initialState,
+  initialState: {
+    user: null,
+    isAuthenticated: false,
+    isCompany: false,
+    loading: false,
+    error: null,
+    signupEmail: null,
+    signupData: null,
+    otpSent: false
+  },
   reducers: {
     clearError: (state) => {
       state.error = null;
@@ -99,11 +146,13 @@ const authSlice = createSlice({
     clearAuthState: (state) => {
       state.user = null;
       state.isAuthenticated = false;
+      state.isCompany = false;
       state.error = null;
       state.signupEmail = null;
       state.signupData = null;
       state.otpSent = false;
-    },
+      localStorage.removeItem('authToken');
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -116,6 +165,8 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload;
+        state.isCompany = action.payload?.role === 'company';
+        state.error = null;
       })
       .addCase(checkAuthStatus.rejected, (state, action) => {
         state.loading = false;
@@ -124,24 +175,29 @@ const authSlice = createSlice({
         state.error = action.payload;
       })
 
-      // Manual login
-      .addCase(manualLogin.pending, (state) => {
+      // Login
+      .addCase(login.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(manualLogin.fulfilled, (state, action) => {
+      .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
+        state.isCompany = action.payload.isCompany;
+        state.error = null;
+        if (action.payload.token) {
+          localStorage.setItem('authToken', action.payload.token);
+        }
       })
-      .addCase(manualLogin.rejected, (state, action) => {
+      .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.isAuthenticated = false;
         state.user = null;
         state.error = action.payload;
       })
 
-      // Signup initiation
+      // Initiate Signup
       .addCase(initiateSignup.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -151,13 +207,14 @@ const authSlice = createSlice({
         state.signupEmail = action.payload.email;
         state.signupData = action.payload.signupData;
         state.otpSent = true;
+        state.error = null;
       })
       .addCase(initiateSignup.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
-      // Verify OTP
+      // Verify Signup
       .addCase(verifySignup.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -166,9 +223,11 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.signupEmail = null;
-        state.signupData = null;
-        state.otpSent = false;
+        state.isCompany = false;
+        state.error = null;
+        if (action.payload.token) {
+          localStorage.setItem('authToken', action.payload.token);
+        }
       })
       .addCase(verifySignup.rejected, (state, action) => {
         state.loading = false;
@@ -176,31 +235,101 @@ const authSlice = createSlice({
       })
 
       // Logout
+      .addCase(logout.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(logout.fulfilled, (state) => {
-        state.user = null;
+        state.loading = false;
         state.isAuthenticated = false;
-        state.signupEmail = null;
-        state.signupData = null;
-        state.otpSent = false;
+        state.user = null;
+        state.isCompany = false;
         state.error = null;
       })
       .addCase(logout.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload;
+      })
+
+      // Get User Profile
+      .addCase(getUserProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getUserProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload;
+        state.error = null;
+      })
+      .addCase(getUserProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Update User Profile
+      .addCase(updateUserProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload;
+        state.error = null;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Initiate Company Signup
+      .addCase(initiateCompanySignup.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(initiateCompanySignup.fulfilled, (state, action) => {
+        state.loading = false;
+        state.signupEmail = action.payload.email;
+        state.signupData = action.payload.companyData;
+        state.otpSent = true;
+        state.error = null;
+      })
+      .addCase(initiateCompanySignup.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Verify Company Signup
+      .addCase(verifyCompanySignup.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyCompanySignup.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.isCompany = true;
+        state.error = null;
+        if (action.payload.token) {
+          localStorage.setItem('authToken', action.payload.token);
+        }
+      })
+      .addCase(verifyCompanySignup.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error?.message || 'Company verification failed';
+        console.error('Company verification failed:', {
+          error: action.error,
+          payload: action.payload,
+          meta: action.meta
+        });
       });
-  },
+  }
 });
 
-// -------------------- Exports --------------------
-
-export const {
-  clearError,
-  resetSignupState,
-  clearAuthState,
-} = authSlice.actions;
-
-// Selectors
+// Export actions and selectors
+export const { clearError, resetSignupState, clearAuthState } = authSlice.actions;
 export const selectUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
+export const selectIsCompany = (state) => state.auth.isCompany;
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthError = (state) => state.auth.error;
 export const selectSignupEmail = (state) => state.auth.signupEmail;

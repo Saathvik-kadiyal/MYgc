@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useSelector } from 'react-redux';
-import store from './store';
+import {store} from './store/index';
 import { selectUser } from './store/slices/authSlice';
 
 const ProfileRedirect = () => {
@@ -24,6 +24,7 @@ import SearchPage from './pages/SearchPage';
 import SearchOptionsPage from './pages/SearchOptionsPage';
 import UploadPostPage from './pages/UploadPostPage';
 import MainLayout from './components/layout/MainLayout';
+import CompanySignupPage from './pages/CompanySignupPage';
 
 
 
@@ -47,6 +48,7 @@ function App() {
           <Route path="/creator-type" element={<CreatorTypePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/companySignup" element={<CompanySignupPage/>}/>
           <Route path="/verify-otp" element={<VerifyOtpPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
         </Routes>

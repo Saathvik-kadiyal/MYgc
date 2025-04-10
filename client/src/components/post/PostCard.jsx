@@ -6,7 +6,7 @@ import { selectUser } from '../../store/slices/authSlice';
 import { formatDistanceToNow } from 'date-fns';
 import { FaArrowUp, FaArrowDown, FaTrash } from 'react-icons/fa';
 
-const PostCard = memo(({ post, showDelete = false }) => {
+const PostCard = memo(({ post, showDelete = false, disableVoting = false, author }) => {
   const dispatch = useDispatch();
   const currentUser = useSelector(selectUser);
   const [error, setError] = useState(null);
@@ -28,13 +28,26 @@ const PostCard = memo(({ post, showDelete = false }) => {
     mediaType = null,
     upvotedBy = [],
     downvotedBy = [],
-    author = post.owner || { _id: 'unknown', username: 'Unknown User', profilePicture: '/default-avatar.png' },
+    owner = null,
   } = post;
 
+  // Handle both users and companies
+  const postAuthor = {
+    _id: author?._id || owner?._id || 'unknown',
+    username: author?.username || owner?.username || 'Unknown User',
+    profilePicture: author?.profilePicture || owner?.profilePicture || '/default-avatar.png',
+    role: author?.role || owner?.role || 'user', // 'user' or 'company'
+    companyLogo: author?.companyLogo || owner?.companyLogo
+  };
+
+  const isCompany = postAuthor.role === 'company';
+  const displayName = isCompany ? (postAuthor.companyName || postAuthor.username) : postAuthor.username;
+  const displayImage = isCompany ? (postAuthor.companyLogo || postAuthor.profilePicture) : postAuthor.profilePicture;
+
   const postContent = content || caption || 'No content';
-  const authorName = author?.username || 'Unknown User';
-  const authorId = author?._id || 'unknown';
-  const profilePicture = author?.profilePicture || '/default-avatar.png';
+  const authorName = postAuthor.username;
+  const authorId = postAuthor._id;
+  const profilePicture = postAuthor.profilePicture;
 
   useEffect(() => {
     if (currentUser?._id) {
@@ -112,18 +125,32 @@ const PostCard = memo(({ post, showDelete = false }) => {
       {error && <div className="text-red-500 text-xs p-1">{error}</div>}
 
       <div className="p-2 flex items-center space-x-2 border-b text-white border-gray-700">
-        <img src={profilePicture} alt={authorName} className="w-6 h-6 rounded-full" />
+        <img 
+          src={displayImage}
+          alt={displayName}
+          className={`w-6 h-6 ${isCompany ? 'rounded-sm' : 'rounded-full'} object-cover`}
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = '/default-avatar.png'
+          }}
+        />
         <div className="flex-grow">
           <div className="flex items-center justify-between">
-            <Link to={`/profile/${authorName}`} className="font-medium text-xs hover:text-blue-400">
-              {authorName}
+            <Link to={`/profile/${postAuthor.username}`} className="font-medium text-xs hover:text-blue-400">
+              {displayName}
+              {isCompany && <span className="ml-1 text-xs text-blue-400">(Company)</span>}
             </Link>
             <span className="text-gray-400 text-xs">{formattedDate}</span>
           </div>
         </div>
       </div>
 
-      {media && (
+      {isCompany ? (
+        <div className="p-4 bg-gray-700">
+          <h4 className="text-white font-bold">Job Opportunity</h4>
+          <p className="text-gray-300 text-sm">{postContent}</p>
+        </div>
+      ) : media && (
         <div className="relative w-full h-96">
           {mediaType === 'image' && (
             <img src={media} alt="Post media" className="w-full h-full object-contain bg-gray-900" />
@@ -143,7 +170,7 @@ const PostCard = memo(({ post, showDelete = false }) => {
             className={`flex items-center space-x-1 text-xs ${
               isUpvoted ? 'text-green-400' : 'text-gray-400 hover:text-green-400'
             }`}
-            disabled={!currentUser}
+            disabled={!currentUser || disableVoting}
           >
             <FaArrowUp />
             <span>{votes.upvotes}</span>
@@ -154,13 +181,13 @@ const PostCard = memo(({ post, showDelete = false }) => {
             className={`flex items-center space-x-1 text-xs ${
               isDownvoted ? 'text-red-400' : 'text-gray-400 hover:text-red-400'
             }`}
-            disabled={!currentUser}
+            disabled={!currentUser || disableVoting}
           >
             <FaArrowDown />
             <span>{votes.downvotes}</span>
           </button>
 
-          {showDelete && currentUser?._id === authorId && (
+          {showDelete && currentUser?._id === postAuthor._id && (
             <button onClick={handleDelete} className="text-gray-400 hover:text-red-400 text-xs">
               <FaTrash />
             </button>

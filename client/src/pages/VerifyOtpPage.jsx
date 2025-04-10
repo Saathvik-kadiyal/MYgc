@@ -5,7 +5,12 @@ import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 import Alert from '../components/common/Alert';
-import { verifySignup, initiateSignup, selectSignupData } from '../store/slices/authSlice';
+import { 
+  verifySignup, 
+  verifyCompanySignup,
+  initiateSignup, 
+  selectSignupData 
+} from '../store/slices/authSlice';
 
 const VerifyOtpPage = () => {
   const location = useLocation();
@@ -13,7 +18,8 @@ const VerifyOtpPage = () => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
   const signupData = useSelector(selectSignupData);
-  const email = location.state?.email || signupData?.email;
+  const { email, accountType } = location.state || {};
+  const role = accountType || signupData?.role || 'user';
 
   const [otp, setOtp] = useState('');
   const [resendMessage, setResendMessage] = useState('');
@@ -27,26 +33,44 @@ const VerifyOtpPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await dispatch(verifySignup({ email, otp })).unwrap();
-      // If verification is successful, navigate to feed page
+      if (accountType === 'company') {
+        console.log('Verifying company OTP for:', email);
+        const result = await dispatch(verifyCompanySignup({ email, otp })).unwrap();
+        console.log('Company verification success:', result);
+      } else {
+        console.log('Verifying user OTP for:', email);
+        const result = await dispatch(verifySignup({ email, otp })).unwrap();
+        console.log('User verification success:', result);
+      }
       navigate('/feed');
     } catch (err) {
-      // Error is handled by Redux
+      console.error('Verification failed:', {
+        error: err,
+        email,
+        accountType,
+        otp
+      });
     }
   };
 
   const handleResendOtp = async () => {
     try {
       if (!signupData) {
+        console.warn('No signup data available for OTP resend');
         setResendMessage('Unable to resend OTP. Please try signing up again.');
         return;
       }
+      console.log('Resending OTP for:', signupData.email);
       const result = await dispatch(initiateSignup(signupData)).unwrap();
       if (result.email) {
+        console.log('OTP resent successfully to:', result.email);
         setResendMessage('OTP has been resent to your email');
       }
     } catch (err) {
-      // Error is handled by Redux
+      console.error('OTP resend failed:', {
+        error: err,
+        signupData
+      });
     }
   };
 

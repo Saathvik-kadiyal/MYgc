@@ -17,7 +17,7 @@ const Input = ({
       {label && (
         <label 
           htmlFor={name} 
-          className="block text-sm sm:text-base font-medium text-black mb-2 transition-all"
+          className="block text-sm sm:text-base font-medium text-white mb-2 transition-all"
         >
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
@@ -36,7 +36,7 @@ const Input = ({
           className={`
             w-full rounded-lg border-2 bg-gray-900
             border-gray-700
-            focus:border-gray-600 focus:ring-1 focus:ring-gray-600
+            focus:border-gray-600 focus:ring-2 focus:ring-blue-500
             disabled:bg-gray-800 disabled:cursor-not-allowed
             placeholder:text-gray-500
             ${error ? 'border-red-500' : 'border-gray-700'}
@@ -52,8 +52,11 @@ const Input = ({
         />
         {icon && (
           <div 
-            className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-${onIconClick ? 'auto' : 'none'} text-gray-400`}
-            onClick={onIconClick}
+          onClick={onIconClick}
+          className={`absolute inset-y-0 left-0 pl-3 flex items-center 
+                     pointer-events-${onIconClick ? 'auto' : 'none'} 
+                     text-gray-400 hover:text-white cursor-${onIconClick ? 'pointer' : 'default'}`}
+          
           >
             {icon}
           </div>

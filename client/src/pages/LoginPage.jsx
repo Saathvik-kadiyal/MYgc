@@ -5,7 +5,7 @@ import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 import Alert from '../components/common/Alert';
-import { manualLogin } from '../store/slices/authSlice';
+import { login } from '../store/slices/authSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const LoginPage = () => {
@@ -35,11 +35,11 @@ const LoginPage = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      await dispatch(manualLogin(formData)).unwrap();
-      // If login is successful, navigate to feed page
+      await dispatch(login(formData)).unwrap();
       navigate('/feed');
     } catch (err) {
       // Error is handled by Redux
+      console.error('Login error:', err);
     }
   };
 
@@ -57,8 +57,8 @@ const LoginPage = () => {
         <Card className="bg-gray-900 border border-gray-800">
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-black">Sign in to your account</h2>
-              <p className="mt-2 text-gray-700">
+              <h2 className="text-2xl font-bold text-white">Sign in to your account</h2>
+              <p className="mt-2 text-gray-400">
                 Welcome back! Please enter your details.
               </p>
             </div>
@@ -100,11 +100,11 @@ const LoginPage = () => {
             </form>
 
             <div className="text-center">
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-gray-400">
                 Don't have an account?{' '}
                 <button
-                  onClick={() => navigate('/signup')}
-                  className="text-black hover:text-gray-900 font-medium"
+                  onClick={() => navigate('/')}
+                  className="text-white hover:text-gray-300 font-medium"
                 >
                   Sign up here
                 </button>

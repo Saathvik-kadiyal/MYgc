@@ -14,13 +14,24 @@ const SignupPage = () => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
 
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    phoneNumber: '',
-    type: location.state?.type || '',
-  });
+  const isCompany = location.state?.type === 'company';
+  const [formData, setFormData] = useState(
+    isCompany 
+      ? { // Company fields
+          username: '',
+          email: '',
+          password: '',
+          role: 'company'
+        }
+      : { // User fields
+          username: '',
+          email: '',
+          password: '',
+          phoneNumber: '',
+          category: '',
+          interestedCategories: []
+        }
+  );
 
   const handleChange = (e) => {
     setFormData({
@@ -32,9 +43,18 @@ const SignupPage = () => {
   const handleSignup = async (e) => {
     e.preventDefault();
     try {
-      const result = await dispatch(initiateSignup(formData)).unwrap();
+      const signupData = {
+        ...formData,
+        type: formData.role === 'company' ? null : formData.type
+      };
+      const result = await dispatch(initiateSignup(signupData)).unwrap();
       if (result.email) {
-        navigate('/verify-otp', { state: { email: formData.email } });
+        navigate('/verify-otp', { 
+          state: { 
+            email: formData.email,
+            type: formData.role 
+          } 
+        });
       }
     } catch (err) {
       // Error is handled by Redux
@@ -80,25 +100,53 @@ const SignupPage = () => {
                   onChange={handleChange}
                   required
                 />
-                <Input
-                  label="Phone Number"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  required
-                />
-                <Select
-                  label="Type"
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  options={[
-                    { value: 'experienced', label: 'Experienced Creator' },
-                    { value: 'fresher', label: 'Fresher Creator' },
-                    { value: 'company', label: 'Company' },
-                  ]}
-                  required
-                />
+                {!isCompany && (
+                  <>
+                    <Input
+                      label="Phone Number"
+                      name="phoneNumber"
+                      value={formData.phoneNumber}
+                      onChange={handleChange}
+                      required
+                    />
+                    <Select
+                      label="Category"
+                      name="category"
+                      value={formData.category}
+                      onChange={handleChange}
+                      options={[
+                        { value: 'Photographer', label: 'Photographer' },
+                        { value: 'Video', label: 'Videographer' },
+                      ]}
+                      required
+                    />
+                    <Select
+                      label="Primary Category"
+                      name="category"
+                      value={formData.category}
+                      onChange={handleChange}
+                      options={[
+                        { value: 'Photographer', label: 'Photographer' },
+                        { value: 'Video', label: 'Videographer' }
+                      ]}
+                      required
+                    />
+                    <Select
+                      label="Also Interested In"
+                      name="interestedCategories"
+                      value={formData.interestedCategories[0] || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        interestedCategories: [e.target.value]
+                      })}
+                      options={[
+                        { value: 'Photographer', label: 'Photographer' },
+                        { value: 'Video', label: 'Videographer' }
+                      ]}
+                    />
+                  </>
+                )}
+                {isCompany && <input type="hidden" name="role" value="company" />}
               </div>
 
               <div className="mt-6">

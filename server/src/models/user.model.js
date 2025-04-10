@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema({
   interestedCategories: [{ type: String, enum: ['Photographer', 'Video'] }],
   socialMediaLinks: [{ platform: String, link: String }],
   profilePicture: { type: String },
+  location: {
+    city: { type: String },
+    country: { type: String }
+  },
   connectionsCount: { type: Number, default: 0 },
   connections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Connection' }],
   notifications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Notification' }],

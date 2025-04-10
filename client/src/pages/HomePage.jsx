@@ -1,76 +1,27 @@
-// src/pages/VerifyOtpPage.js
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { verifySignup, initiateSignup, clearError } from '../store/slices/authSlice';
+import { Link } from 'react-router-dom';
 
-const VerifyOtpPage = () => {
-  const [otp, setOtp] = useState('');
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const { signupData, loading, error } = useSelector((state) => state.auth);
-
-  const email = location.state?.email || signupData?.email;
-
-  useEffect(() => {
-    if (!email) {
-      navigate('/signup');
-    }
-  }, [email, navigate]);
-
-  useEffect(() => {
-    if (error) {
-      dispatch(clearError());
-    }
-  }, [error, dispatch]);
-
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    try {
-      const result = await dispatch(verifySignup({ email, otp })).unwrap();
-      alert('Account created successfully!');
-      navigate('/login');
-    } catch (err) {
-      alert('Invalid or expired OTP');
-    }
-  };
-
-  const handleResendOtp = async () => {
-    try {
-      if (signupData) {
-        await dispatch(initiateSignup(signupData)).unwrap();
-        alert('OTP resent to your email');
-      } else {
-        alert('Signup data not found');
-        navigate('/signup');
-      }
-    } catch (err) {
-      alert('Error resending OTP');
-    }
-  };
-
+const HomePage = () => {
   return (
-    <div className="container">
-      <h2>Verify OTP</h2>
-      <form onSubmit={handleVerifyOtp}>
-        <input
-          type="text"
-          placeholder="Enter OTP"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-          required
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? 'Verifying...' : 'Verify OTP'}
-        </button>
-      </form>
-      <button onClick={handleResendOtp} disabled={loading}>
-        Resend OTP
-      </button>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full space-y-6">
+        <h1 className="text-3xl font-bold text-white text-center">Welcome to UGC Platform</h1>
+        
+        <div className="grid grid-cols-1 gap-4">
+          <Link 
+            to="/creator-type" 
+            className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg text-center transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Get Started</h2>
+            <p className="text-sm mt-2">Join our community</p>
+          </Link>
+        </div>
+
+        <div className="text-center text-white">
+          Already have an account? <Link to="/login" className="text-blue-400 hover:text-blue-300">Login</Link>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default VerifyOtpPage;
+export default HomePage;

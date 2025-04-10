@@ -6,7 +6,7 @@ const Card = ({
   headerAction
 }) => {
   return (
-    <div className={`bg-white shadow rounded-lg overflow-hidden ${className}`}>
+    <div className={`bg-gray-800 shadow rounded-lg overflow-hidden ${className}`}>
       {(title || subtitle) && (
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
