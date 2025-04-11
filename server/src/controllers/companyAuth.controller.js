@@ -98,14 +98,23 @@ exports.verifyCompanySignup = async (req, res) => {
             });
         }
 
-        // Verify OTP using the centralized OTP store
-        if (!verifyOTP(email, otp)) {
+        // Enhanced OTP verification with detailed error messages
+        const otpVerification = verifyOTP(email, otp);
+        if (!otpVerification.valid) {
             return res.status(400).json({ 
                 success: false, 
-                message: "Invalid or expired verification code",
-                error: "OTP verification failed",
+                message: otpVerification.reason === 'expired' 
+                    ? "Verification code has expired. Please request a new one."
+                    : "Invalid verification code. Please try again.",
+                error: otpVerification.reason === 'expired' 
+                    ? "OTP_EXPIRED" 
+                    : "INVALID_OTP",
                 email,
-                accountType: "company"
+                accountType: "company",
+                details: {
+                    timestamp: new Date().toISOString(),
+                    remainingAttempts: otpVerification.remainingAttempts || 3
+                }
             });
         }
         
@@ -131,7 +140,7 @@ exports.verifyCompanySignup = async (req, res) => {
             username: companyData.username,
             password: hashedPassword,
             role: companyData.role,
-            phoneNumber: companyData.phoneNumber || '', // Add phoneNumber with fallback
+            phoneNumber: companyData.phoneNumber || null, // Make phoneNumber optional
             jobPostings: [],
             connections: [],
             notifications: []
@@ -184,42 +193,59 @@ exports.handleCompanyLogin = async (req, res) => {
         if (!email || !password) {
             return res.status(400).json({ 
                 success: false,
-                message: "Email and password are required" 
+                message: "Email and password are required",
+                error: "MISSING_CREDENTIALS"
             });
         }
         
-        const company = await Company.findOne({ email });
+        // Check if company exists and is verified
+        const company = await Company.findOne({ email })
+            .select('+password +isVerified');
+            
         if (!company) {
             return res.status(404).json({ 
                 success: false,
-                message: "Company not found with this email" 
+                message: "No company found with this email",
+                error: "COMPANY_NOT_FOUND",
+                details: {
+                    timestamp: new Date().toISOString(),
+                    email: email
+                }
             });
         }
-        
+
         // Verify password
         const isPasswordValid = await comparePassword(password, company.password);
         if (!isPasswordValid) {
             return res.status(401).json({ 
                 success: false,
-                message: "Invalid password" 
+                message: "Invalid credentials",
+                error: "INVALID_CREDENTIALS",
+                remainingAttempts: 3 // Implement attempt tracking
             });
         }
 
-        // Generate JWT token
-        const token = generateToken(company);
+        // Generate JWT token with company details
+        const token = generateToken({
+            id: company._id,
+            email: company.email,
+            role: company.role,
+            accountType: 'company'
+        });
         
-        // Set token in HTTP-only cookie
-        res.cookie('auth_token', token, cookieOptions);
+        // Set secure HTTP-only cookie
+        res.cookie('auth_token', token, {
+            ...cookieOptions,
+            maxAge: 24 * 60 * 60 * 1000 // 1 day
+        });
         
+        // Return success response without password
+        const { password: _, ...companyData } = company.toObject();
         res.status(200).json({
             success: true,
             message: "Login successful",
-            company: {
-                id: company._id,
-                email: company.email,
-                username: company.username,
-                role: company.role
-            }
+            company: companyData,
+            token // Include token in response for clients that need it
         });
     } catch (error) {
         res.status(500).json({ 

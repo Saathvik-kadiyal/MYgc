@@ -47,9 +47,15 @@ const VerifyOtpPage = () => {
       console.error('Verification failed:', {
         error: err,
         email,
-        accountType,
-        otp
+        otp,
+        errorType: err?.error,
+        details: err?.details
       });
+      
+      // Clear OTP field on specific errors
+      if (err?.error === 'INVALID_OTP' || err?.error === 'OTP_EXPIRED') {
+        setOtp('');
+      }
     }
   };
 

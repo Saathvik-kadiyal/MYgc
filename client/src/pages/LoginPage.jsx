@@ -39,7 +39,7 @@ const LoginPage = () => {
       navigate('/feed');
     } catch (err) {
       // Error is handled by Redux
-      console.error('Login error:', err);
+      console.error('Login error:', err,formData);
     }
   };
 

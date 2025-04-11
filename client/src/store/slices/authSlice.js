@@ -24,6 +24,7 @@ export const login = createAsyncThunk(
         isCompany: res.data.isCompany || false
       };
     } catch (err) {
+      console.log(credentials)
       return rejectWithValue(err.response?.data?.message || 'Login failed');
     }
   }
@@ -315,11 +316,21 @@ const authSlice = createSlice({
       })
       .addCase(verifyCompanySignup.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || action.error?.message || 'Company verification failed';
+        // Extract detailed error message from payload
+        const errorMsg = action.payload?.message || 
+                        action.payload?.error || 
+                        action.error?.message || 
+                        'Company verification failed';
+        
+        state.error = errorMsg;
+        
+        // More detailed error logging
         console.error('Company verification failed:', {
           error: action.error,
           payload: action.payload,
-          meta: action.meta
+          meta: action.meta,
+          timestamp: new Date().toISOString(),
+          email: action.meta?.arg?.email
         });
       });
   }

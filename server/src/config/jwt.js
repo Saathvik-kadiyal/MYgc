@@ -14,6 +14,7 @@ const generateToken = (user) => {
             role: user.role || undefined,
             type: user.type || undefined
         };
+        console.log(payload)
 
         return jwt.sign(payload, SECRET_KEY);
     } catch (error) {

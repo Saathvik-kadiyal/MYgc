@@ -6,7 +6,7 @@ const Notification = require("./notification.model.js");
 const companySchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  phoneNumber: { type: String, required: true },
+  phoneNumber: { type: String, required: false, default: null },
   password: { type: String, required: true }, // Required for manual authentication
   role: { type: String, required: true },
   profilePicture: { type: String }, // URL to profile picture

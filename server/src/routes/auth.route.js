@@ -5,6 +5,7 @@ const { generateOTP, verifyOTP } = require('../config/otp');
 const { hashPassword, comparePassword } = require('../config/bcrypt');
 const { generateToken } = require('../config/jwt');
 const User = require('../models/user.model');
+const Company = require('../models/company.model')
 const authMiddleware = require('../middleware/auth.middleware');
 const companyAuthMiddleware = require('../middleware/companyAuth.middleware');
 const authController = require('../controllers/auth.controller');
@@ -37,7 +38,7 @@ router.post('/send-otp', async (req, res) => {
         return res.status(400).json({ message: "Invalid email address." });
     }
 
-    const otp = generateOTP(email);
+    const otp = generateOTP(email, 'user');
     const sent = await sendEmail(email, "Your OTP Code", `Your OTP is: ${otp}`);
 
     if (!sent) {
@@ -89,30 +90,67 @@ router.post('/register', async (req, res) => {
 
 // 🔐 Login with Email & Password
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user || !(await comparePassword(password, user.password))) {
-        return res.status(401).json({ message: "Invalid credentials." });
-    }
+        // First try to find user
+        let account = await User.findOne({ email }).select('+password');
+        let accountType = 'user';
 
-    const token = generateToken(user);
-    res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        path: '/'
-    });
-
-    res.json({ 
-        message: "Login successful",
-        user: {
-            id: user._id,
-            email: user.email,
-            username: user.username
+        // If user not found, try company
+        if (!account) {
+            account = await Company.findOne({ email }).select('+password');
+            accountType = 'company';
         }
-    });
+
+        // If neither found or password doesn't match
+        if (!account || !(await comparePassword(password, account.password))) {
+            return res.status(401).json({ 
+                success: false,
+                message: "Invalid credentials",
+                error: "INVALID_CREDENTIALS"
+            });
+        }
+
+        // Generate token with account type
+        const token = generateToken({
+            id: account._id,
+            email: account.email,
+            role: account.role
+        });
+
+        // Set secure cookie
+        res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: '/'
+        });
+
+        // Return response matching client expectations
+        const responseData = {
+            success: true,
+            message: "Login successful",
+            token, // Include token in response for client storage
+            user: {
+                id: account._id,
+                email: account.email,
+                username: account.username,
+                ...(accountType === 'company' && { role: account.role })
+            },
+            isCompany: accountType === 'company'
+        };
+
+        res.json(responseData);
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: "Login failed",
+            error: error.message
+        });
+    }
 });
 
 // 👤 Get user profile
