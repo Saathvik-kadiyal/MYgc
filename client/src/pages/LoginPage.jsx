@@ -1,120 +1,119 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { login, clearError } from '../store/slices/authSlice';
+import { toast } from 'react-toastify';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 import Alert from '../components/common/Alert';
-import { login } from '../store/slices/authSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const LoginPage = () => {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { loading, error, isAuthenticated } = useSelector((state) => state.auth);
-  
-  // If already authenticated, redirect to feed
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/feed');
-    }
-  }, [isAuthenticated, navigate]);
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const { loading, error, user } = useSelector((state) => state.auth);
 
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
+    const [formData, setFormData] = useState({
+        email: '',
+        password: ''
     });
-  };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      await dispatch(login(formData)).unwrap();
-      navigate('/feed');
-    } catch (err) {
-      // Error is handled by Redux
-      console.error('Login error:', err,formData);
+    useEffect(() => {
+        if (user) {
+            navigate('/feed');
+        }
+    }, [user, navigate]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        dispatch(clearError());
+
+        if (!formData.email || !formData.password) {
+            toast.error('Please fill in all fields');
+            return;
+        }
+
+        try {
+            const result = await dispatch(login(formData)).unwrap();
+            if (result.success) {
+                toast.success('Logged in successfully');
+                navigate('/feed');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+                <LoadingSpinner size="lg" />
+            </div>
+        );
     }
-  };
 
-  if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                    Welcome Back
+                </h2>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <Input
+                        label="Email"
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                    />
+
+                    <Input
+                        label="Password"
+                        type="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        required
+                    />
+
+                    {error && (
+                        <Alert type="error" message={error} />
+                    )}
+
+                    <Button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full"
+                    >
+                        {loading ? 'Logging in...' : 'Log in'}
+                    </Button>
+                </form>
+
+                <div className="mt-4 text-center">
+                    <p className="text-gray-600">
+                        Don't have an account?{' '}
+                        <Button
+                            variant="link"
+                            onClick={() => navigate('/')}
+                        >
+                            Sign up
+                        </Button>
+                    </p>
+                </div>
+            </Card>
+        </div>
     );
-  }
-
-  return (
-    <div className="min-w-screen min-h-screen bg-black flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <Card className="bg-gray-900 border border-gray-800">
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-white">Sign in to your account</h2>
-              <p className="mt-2 text-gray-400">
-                Welcome back! Please enter your details.
-              </p>
-            </div>
-
-            {error && (
-              <Alert type="error" message={error} onClose={() => dispatch({ type: 'auth/clearError' })} />
-            )}
-
-            <form onSubmit={handleLogin}>
-              <div className="space-y-4">
-                <Input
-                  label="Email"
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                />
-                <Input
-                  label="Password"
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  fullWidth
-                  isLoading={loading}
-                >
-                  Sign in
-                </Button>
-              </div>
-            </form>
-
-            <div className="text-center">
-              <p className="text-sm text-gray-400">
-                Don't have an account?{' '}
-                <button
-                  onClick={() => navigate('/')}
-                  className="text-white hover:text-gray-300 font-medium"
-                >
-                  Sign up here
-                </button>
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
 };
 
 export default LoginPage;

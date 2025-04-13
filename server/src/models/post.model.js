@@ -6,9 +6,12 @@ const postSchema = new mongoose.Schema({
   caption: { type: String },
   upvotes: { type: Number, default: 0 },
   downvotes: { type: Number, default: 0 },
-  upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  downvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+  upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, refPath: 'upvoterModel' }],
+  downvotedBy: [{ type: mongoose.Schema.Types.ObjectId, refPath: 'downvoterModel' }],
+  upvoterModel: { type: String, enum: ['User', 'Company'] },
+  downvoterModel: { type: String, enum: ['User', 'Company'] },
+  owner: { type: mongoose.Schema.Types.ObjectId, refPath: 'ownerModel', required: true },
+  ownerModel: { type: String, enum: ['User', 'Company'], required: true }
 }, { timestamps: true });
 
 postSchema.index({ owner: 1, createdAt: -1 });

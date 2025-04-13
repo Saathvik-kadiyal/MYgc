@@ -1,31 +1,42 @@
 import axios from 'axios';
+import { store } from '../store';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true, // This ensures cookies are sent with requests
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json'
   }
 });
 
-// Add a response interceptor to handle authentication errors
-api.interceptors.response.use(
-  (response) => {
-    return response;
+// Request interceptor
+api.interceptors.request.use(
+  (config) => {
+    const token = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('auth_token='))
+      ?.split('=')[1];
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
   },
   (error) => {
-    // If the error is due to an expired token (401 Unauthorized)
-    if (error.response && error.response.status === 401) {
-      // Only redirect to login if we're not already on the login page
-      const currentPath = window.location.pathname;
-      if (!currentPath.includes('/login') && !currentPath.includes('/signup')) {
-        // Clear any auth cookies
-        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        // Redirect to login page
-        window.location.href = '/login';
-      }
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Clear auth state and redirect to login
+      store.dispatch({ type: 'auth/logout' });
+      window.location.href = '/login';
     }
-    
     return Promise.reject(error);
   }
 );

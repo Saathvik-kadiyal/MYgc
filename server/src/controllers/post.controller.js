@@ -1,5 +1,6 @@
 const Post = require("../models/post.model.js");
 const User = require("../models/user.model.js");
+const Company = require("../models/company.model.js");
 
 //Getting all posts for the feed
 exports.getFeedPosts = async (req, res) => {
@@ -10,7 +11,7 @@ exports.getFeedPosts = async (req, res) => {
 
     // Get posts with pagination
     const posts = await Post.find()
-      .populate("owner", "username profilePicture")
+      .populate("owner", "username profilePicture role companyName companyLogo")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -20,6 +21,14 @@ exports.getFeedPosts = async (req, res) => {
 
     // Calculate if there are more posts to load
     const hasMore = skip + posts.length < total;
+
+    // Add isUpvoted and isDownvoted flags if user/company is authenticated
+    if (req.user) {
+      posts.forEach(post => {
+        post.isUpvoted = post.upvotedBy?.includes(req.user.id) || false;
+        post.isDownvoted = post.downvotedBy?.includes(req.user.id) || false;
+      });
+    }
 
     res.status(200).json({
       posts,
@@ -34,12 +43,12 @@ exports.getFeedPosts = async (req, res) => {
   }
 };
 
-
 //Voting on a post
 exports.votePost = async (req, res) => {
   const { postId } = req.params;
   const { type } = req.body;
   const userId = req.user.id;
+  const userModel = req.user.role === 'company' ? 'Company' : 'User';
 
   try {
     const post = await Post.findById(postId);
@@ -66,6 +75,7 @@ exports.votePost = async (req, res) => {
         }
         post.upvotes += 1;
         post.upvotedBy.push(userId);
+        post.upvoterModel = userModel;
       } else if (type === "downvote") {
         if (hasUpvoted) {
           post.upvotes -= 1;
@@ -73,6 +83,7 @@ exports.votePost = async (req, res) => {
         }
         post.downvotes += 1;
         post.downvotedBy.push(userId);
+        post.downvoterModel = userModel;
       } else {
         return res.status(400).json({ message: "Invalid vote type" });
       }
@@ -89,7 +100,6 @@ exports.votePost = async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 };
-
 
 // DELETE a specific post
 exports.deletePost = async (req, res) => {
@@ -121,6 +131,7 @@ exports.uploadPost = async (req, res) => {
   try {
     const userId = req.user.id;
     const { caption, mediaType } = req.body;
+    const userModel = req.user.role === 'company' ? 'Company' : 'User';
 
     // Check if file exists
     if (!req.file) {
@@ -142,21 +153,32 @@ exports.uploadPost = async (req, res) => {
       media: mediaUrl,
       mediaType: postMediaType,
       caption,
-      owner: userId
+      owner: userId,
+      ownerModel: userModel
     });
 
     await newPost.save();
 
-    // Add post reference to user
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    // Add post reference to user or company based on role
+    if (userModel === 'Company') {
+      const company = await Company.findById(userId);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      company.posts.push(newPost._id);
+      await company.save();
+    } else {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      user.posts.push(newPost._id);
+      await user.save();
     }
-    user.posts.push(newPost._id);
-    await user.save();
 
     // Get the populated post
     const populatedPost = await Post.findById(newPost._id)
+      .populate("owner", "username profilePicture role companyName companyLogo")
       .select("media mediaType caption upvotes downvotes createdAt");
 
     res.status(201).json({ 

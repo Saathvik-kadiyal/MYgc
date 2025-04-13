@@ -3,12 +3,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, Navigate } from 'react-router-dom';
 import { checkAuthStatus } from '../../store/slices/authSlice';
 import { fetchCurrentUserProfile } from '../../store/slices/userSlice';
+import { selectUser, selectCompany, selectAuthLoading } from '../../store/slices/authSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const AuthGuard = ({ children }) => {
   const dispatch = useDispatch();
   const location = useLocation();
-  const { isAuthenticated, loading: authLoading, error: authError } = useSelector((state) => state.auth || { isAuthenticated: false, loading: false, error: null });
+  const user = useSelector(selectUser);
+  const company = useSelector(selectCompany);
+  const loading = useSelector(selectAuthLoading);
   const { loading: profileLoading, currentProfile } = useSelector((state) => state.user || { loading: false, currentProfile: null });
   const [initialCheckDone, setInitialCheckDone] = useState(false);
   const authCheckRef = useRef(false);
@@ -79,7 +82,7 @@ const AuthGuard = ({ children }) => {
   }, [checkAuth]);
 
   // Show loading spinner until initial authentication check is complete
-  if (!initialCheckDone || authLoading || (isAuthenticated && !currentProfile && profileLoading)) {
+  if (!initialCheckDone || loading || ((user || company) && !currentProfile && profileLoading)) {
     return (
       <div className="flex justify-center items-center h-screen">
         <LoadingSpinner />
@@ -88,7 +91,7 @@ const AuthGuard = ({ children }) => {
   }
 
   // If user is authenticated and trying to access a public route, redirect to feed
-  if (isAuthenticated && isPublicRoute && location.pathname !== '/') {
+  if ((user || company) && isPublicRoute && location.pathname !== '/') {
     return <Navigate to="/feed" replace />;
   }
 
@@ -98,7 +101,7 @@ const AuthGuard = ({ children }) => {
   }
 
   // For protected routes, redirect to login if not authenticated
-  if (!isAuthenticated) {
+  if (!user && !company) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 

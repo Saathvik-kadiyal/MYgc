@@ -1,37 +1,21 @@
 const jwt = require('jsonwebtoken');
-const SECRET_KEY = process.env.JWT_SECRET || 'your_secret_key';
 
 const generateToken = (user) => {
-    try {
-        if (!user || !user._id || !user.email) {
-            throw new Error('Invalid user data for token generation');
-        }
+    const payload = {
+        id: user.id,
+        email: user.email,
+        role: user.role
+    };
 
-        const payload = {
-            id: user._id,
-            email: user.email,
-            isCompany: !!user.role,
-            role: user.role || undefined,
-            type: user.type || undefined
-        };
-        console.log(payload)
-
-        return jwt.sign(payload, SECRET_KEY);
-    } catch (error) {
-        console.error('Error generating token:', error);
-        throw error;
-    }
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 const verifyToken = (token) => {
     try {
-        const decoded = jwt.verify(token, SECRET_KEY);
-        return { valid: true, expired: false, decoded };
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return { valid: true, decoded };
     } catch (error) {
-        if (error.name === 'TokenExpiredError') {
-            return { valid: false, expired: true, decoded: null };
-        }
-        return { valid: false, expired: false, decoded: null };
+        return { valid: false, expired: error.name === 'TokenExpiredError' };
     }
 };
 

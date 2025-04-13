@@ -1,10 +1,13 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { selectUser, selectCompany, selectAuthLoading } from '../../store/slices/authSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const ProtectedRoute = () => {
   const location = useLocation();
-  const { isAuthenticated, loading } = useSelector((state) => state.auth);
+  const user = useSelector(selectUser);
+  const company = useSelector(selectCompany);
+  const loading = useSelector(selectAuthLoading);
 
   // Show loading state while checking authentication
   if (loading) {
@@ -16,7 +19,7 @@ const ProtectedRoute = () => {
   }
 
   // Redirect to login if not authenticated
-  if (!isAuthenticated) {
+  if (!user && !company) {
     // Save the attempted URL for redirecting after login
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }

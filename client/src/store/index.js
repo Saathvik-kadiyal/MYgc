@@ -6,6 +6,10 @@ import userReducer from './slices/userSlice';
 import postReducer from './slices/postSlice';
 import uploadReducer from './slices/uploadSlice';
 import searchReducer from './slices/searchSlice';
+import jobReducer from './slices/jobSlice';
+import messageReducer from './slices/messageSlice';
+import notificationReducer from './slices/notificationSlice';
+import connectionReducer from './slices/connectionSlice';
 
 // Persist configuration for auth
 const authPersistConfig = {
@@ -30,6 +34,10 @@ export const store = configureStore({
     post: postReducer,
     upload: uploadReducer,
     search: searchReducer,
+    jobs: jobReducer,
+    messages: messageReducer,
+    notifications: notificationReducer,
+    connections: connectionReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

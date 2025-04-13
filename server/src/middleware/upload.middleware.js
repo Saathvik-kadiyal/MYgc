@@ -19,62 +19,79 @@ const cloudinaryStorage = new CloudinaryStorage({
   },
 });
 
+// Configure multer for memory storage (primary)
+const memoryStorage = multer.memoryStorage();
+
 // Configure multer for temporary storage (fallback)
-const tempStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    console.log("Setting destination for file:", file.originalname);
-    cb(null, '/tmp/'); // Store files in /tmp directory
-  },
-  filename: function (req, file, cb) {
-    const filename = Date.now() + '-' + file.originalname;
-    console.log("Setting filename:", filename);
-    cb(null, filename);
-  }
+const diskStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, '/tmp/'); // Store files in /tmp directory
+    },
+    filename: function (req, file, cb) {
+        const filename = Date.now() + '-' + file.originalname;
+        cb(null, filename);
+    }
 });
 
-// File filter function
-const fileFilter = (req, file, cb) => {
-  console.log("Processing file:", {
-    originalname: file.originalname,
-    mimetype: file.mimetype,
-    size: file.size
-  });
-
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/webm'];
-  if (allowedTypes.includes(file.mimetype)) {
-    console.log("File type accepted:", file.mimetype);
-    cb(null, true);
-  } else {
-    console.error("File type rejected:", file.mimetype);
-    cb(new Error('Invalid file type. Only images (JPEG, PNG, GIF) and videos (MP4, WebM) are allowed.'), false);
-  }
-};
-
-// Create multer upload instance with Cloudinary storage
 const upload = multer({
-  storage: cloudinaryStorage, // Use Cloudinary storage instead of tempStorage
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  },
-  fileFilter: fileFilter
+    storage: memoryStorage, // Use memory storage as primary
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only images and videos are allowed.'));
+        }
+    }
+});
+
+// Fallback upload for when memory storage fails
+const fallbackUpload = multer({
+    storage: diskStorage,
+    limits: {
+        fileSize: 5 * 1024 * 1024,
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only images and videos are allowed.'));
+        }
+    }
 });
 
 // Error handling middleware
 const handleUploadError = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    console.error("Multer error:", err);
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'File size too large. Maximum size is 10MB.' });
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({
+                success: false,
+                message: "File size too large. Maximum size is 5MB."
+            });
+        }
+        return res.status(400).json({
+            success: false,
+            message: err.message
+        });
+    } else if (err) {
+        // If there's an error with memory storage, try fallback
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return fallbackUpload.single('file')(req, res, next);
+        }
+        return res.status(500).json({
+            success: false,
+            message: "Error uploading file"
+        });
     }
-    return res.status(400).json({ message: err.message });
-  } else if (err) {
-    console.error("Upload error:", err);
-    return res.status(400).json({ message: err.message });
-  }
-  next();
+    next();
 };
 
 module.exports = {
   upload,
+  fallbackUpload,
   handleUploadError
 };

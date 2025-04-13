@@ -1,328 +1,242 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
+import { toast } from 'react-toastify';
 
 // Async thunks
 export const fetchCurrentUserProfile = createAsyncThunk(
-  'user/fetchCurrentUserProfile',
-  async (_, { rejectWithValue, getState }) => {
-    try {
-      // Check if we already have the current user's profile
-      const state = getState();
-      if (state.user.currentProfile) {
-        console.log('Using cached current user profile');
-        return state.user.currentProfile;
-      }
-      
-      // Get current user's info from auth state
-      const authState = getState();
-      const user = authState.auth.user;
-      if (!user || !user._id) {
-        console.log('No authenticated user found in auth state');
-        throw new Error('Not authenticated');
-      }
-      
-      // Use user ID instead of username for more reliable lookup
-      const userId = user._id;
-      const response = await api.get(`/users/id/${userId}`);
-      console.log(`Current user profile raw response: ${response}`, {
-        status: response.status,
-        data: response.data,
-        headers: response.headers
-      });
-      
-      if (!response.data) {
-        console.error('API returned empty data');
-        throw new Error('Invalid response format');
-      }
-      
-      // Check if the response has the expected structure
-      if (!response.data) {
-        console.error('Invalid response format:', response);
-        throw new Error('Invalid response format');
-      }
-      
-      console.log('Current user profile response:', response.data);
-      
-      // Transform the response data to match the expected structure
-      const profile = {
-        ...response.data,
-        posts: response.data.posts?.map(post => ({
-          ...post,
-          // Ensure the post has the same structure as feed posts
-          _id: post._id || 'unknown',
-          title: post.title || 'Untitled',
-          content: post.content || post.caption || 'No content',
-          createdAt: post.createdAt || new Date().toISOString(),
-          owner: post.owner || { _id: 'unknown', username: 'Unknown User', profilePicture: '/default-avatar.png' },
-          author: post.owner || { _id: 'unknown', username: 'Unknown User', profilePicture: '/default-avatar.png' },
-          upvotedBy: Array.isArray(post.upvotedBy) ? post.upvotedBy : [],
-          downvotedBy: Array.isArray(post.downvotedBy) ? post.downvotedBy : [],
-          upvotes: post.upvotedBy?.length || 0,
-          downvotes: post.downvotedBy?.length || 0,
-          media: post.media || null,
-          mediaType: post.mediaType || null,
-          caption: post.caption || post.content || 'No content'
-        })) || []
-      };
-      
-      return profile;
-    } catch (error) {
-      console.error('Error fetching current user profile:', error);
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch profile');
+    'user/fetchCurrentUserProfile',
+    async (_, { rejectWithValue, getState }) => {
+        try {
+            const state = getState();
+            const { user, company, role } = state.auth;
+            
+            // Get the current user's username based on role
+            const username = role === 'company' ? company?.username : user?.username;
+            
+            if (!username) {
+                throw new Error('Not authenticated');
+            }
+            
+            // Use different endpoints based on role
+            const endpoint = role === 'company' ? `/companies/${username}` : `/users/${username}`;
+            const response = await api.get(endpoint);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
     }
-  }
 );
 
 export const fetchUserProfile = createAsyncThunk(
-  'user/fetchUserProfile',
-  async (username, { rejectWithValue, getState }) => {
-    try {
-      if (!username) {
-        throw new Error('Username is required');
-      }
-      
-      // Check if we already have this user's profile
-      const state = getState();
-      if (state.user.profile && state.user.profile.username === username) {
-        console.log('Using cached user profile for:', username);
-        return state.user.profile;
-      }
-      
-      console.log('Fetching user profile for username:', username);
-      const response = await api.get(`/users/${username}`);
-      
-      // Check if the response has the expected structure
-      if (!response.data) {
-        console.error('Invalid response format:', response);
-        throw new Error('Invalid response format');
-      }
-      
-      console.log('User profile response:', response.data);
-      
-      // Transform the response data to match the expected structure
-      const profile = {
-        ...response.data,
-        posts: response.data.posts?.map(post => ({
-          ...post,
-          // Ensure the post has the same structure as feed posts
-          _id: post._id || 'unknown',
-          title: post.title || 'Untitled',
-          content: post.content || post.caption || 'No content',
-          createdAt: post.createdAt || new Date().toISOString(),
-          owner: post.owner || { _id: 'unknown', username: 'Unknown User', profilePicture: '/default-avatar.png' },
-          author: post.owner || { _id: 'unknown', username: 'Unknown User', profilePicture: '/default-avatar.png' },
-          upvotedBy: Array.isArray(post.upvotedBy) ? post.upvotedBy : [],
-          downvotedBy: Array.isArray(post.downvotedBy) ? post.downvotedBy : [],
-          upvotes: post.upvotedBy?.length || 0,
-          downvotes: post.downvotedBy?.length || 0,
-          media: post.media || null,
-          mediaType: post.mediaType || null,
-          caption: post.caption || post.content || 'No content'
-        })) || []
-      };
-      
-      return profile;
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch user profile');
+    'user/fetchUserProfile',
+    async ({ username, isCompany }, { rejectWithValue }) => {
+        try {
+            const endpoint = isCompany ? `/companies/${username}` : `/users/${username}`;
+            const response = await api.get(endpoint);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
     }
-  }
 );
 
 export const updateUserProfile = createAsyncThunk(
-  'user/updateUserProfile',
-  async ({ id, data }, { rejectWithValue }) => {
-    try {
-      if (!id) {
-        throw new Error('User ID is required');
-      }
-      
-      const response = await api.put(`/users/${id}`, data);
-      
-      // Check if the response has the expected structure
-      if (!response.data) {
-        console.error('Invalid response format:', response);
-        throw new Error('Invalid response format');
-      }
-      
-      // Transform the response data to match the expected structure
-      const profile = {
-        ...response.data,
-        posts: response.data.posts?.map(post => ({
-          ...post,
-          author: post.owner || { _id: 'unknown', username: 'Unknown User', profilePicture: '/default-avatar.png' },
-          upvotes: post.upvotedBy || [],
-          downvotes: post.downvotedBy || []
-        })) || []
-      };
-      
-      return profile;
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
+    'user/updateUserProfile',
+    async ({ username, data, isCompany }, { rejectWithValue }) => {
+        try {
+            const endpoint = isCompany ? `/companies/${username}` : `/users/${username}`;
+            const response = await api.put(endpoint, data);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
     }
-  }
 );
 
 export const uploadProfilePicture = createAsyncThunk(
-  'user/uploadProfilePicture',
-  async (formData, { rejectWithValue }) => {
-    try {
-      if (!formData || !(formData instanceof FormData)) {
-        throw new Error('Invalid form data');
-      }
-      
-      console.log('Sending profile picture upload request to:', '/users/profile/upload');
-      
-      const response = await api.post('/users/profile/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      // Verify the response structure matches backend
-      if (!response.data || !response.data.user || !response.data.user.profilePicture) {
-        console.error('Invalid response structure:', response.data);
-        throw new Error('Invalid response from server');
-      }
-      
-      console.log('Profile picture upload response:', response.data);
-      
-      // Check if the response has the expected structure
-      if (!response.data || !response.data.user) {
-        console.error('Invalid response format:', response);
-        throw new Error('Invalid response format');
-      }
-      
-      // Log the user data to verify the profile picture URL
-      console.log('User data from response:', {
-        id: response.data.user._id,
-        username: response.data.user.username,
-        profilePicture: response.data.user.profilePicture
-      });
-      
-      return response.data;
-    } catch (error) {
-      console.error('Error uploading profile picture:', error);
-      return rejectWithValue(error.response?.data?.message || 'Failed to upload profile picture');
+    'user/uploadProfilePicture',
+    async ({ formData, isCompany }, { rejectWithValue }) => {
+        try {
+            const endpoint = isCompany ? '/companies/profile/upload' : '/users/profile/upload';
+            const response = await api.post(endpoint, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
     }
-  }
 );
 
-// Initial state
+export const followUser = createAsyncThunk(
+    'user/followUser',
+    async ({ username, isCompany }, { rejectWithValue }) => {
+        try {
+            const endpoint = isCompany ? `/companies/${username}/follow` : `/users/${username}/follow`;
+            const response = await api.post(endpoint);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+export const unfollowUser = createAsyncThunk(
+    'user/unfollowUser',
+    async ({ username, isCompany }, { rejectWithValue }) => {
+        try {
+            const endpoint = isCompany ? `/companies/${username}/unfollow` : `/users/${username}/unfollow`;
+            const response = await api.post(endpoint);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
 const initialState = {
-  currentProfile: null, // Current user's profile (for sidebar)
-  profile: null,        // Profile being viewed (for profile page)
-  loading: false,
-  error: null,
-  uploadError: null,
-  isUploading: false,
+    currentProfile: null,
+    profile: null,
+    followers: [],
+    following: [],
+    loading: false,
+    error: null
 };
 
-// Create the slice
 const userSlice = createSlice({
-  name: 'user',
-  initialState,
-  reducers: {
-    clearProfile: (state) => {
-      state.profile = null;
-      state.error = null;
-    },
-    clearCurrentProfile: (state) => {
-      state.currentProfile = null;
-    },
-    setUploadError: (state, action) => {
-      state.uploadError = action.payload;
-    },
-    clearUploadError: (state) => {
-      state.uploadError = null;
-    },
-    setIsUploading: (state, action) => {
-      state.isUploading = action.payload;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      // Fetch current user profile
-      .addCase(fetchCurrentUserProfile.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchCurrentUserProfile.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentProfile = action.payload;
-      })
-      .addCase(fetchCurrentUserProfile.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || 'Failed to fetch profile';
-      })
-      
-      // Fetch user profile
-      .addCase(fetchUserProfile.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchUserProfile.fulfilled, (state, action) => {
-        state.loading = false;
-        state.profile = action.payload;
-      })
-      .addCase(fetchUserProfile.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || 'Failed to fetch user profile';
-      })
-      
-      // Update User Profile
-      .addCase(updateUserProfile.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateUserProfile.fulfilled, (state, action) => {
-        state.loading = false;
-        state.profile = action.payload;
-        state.error = null;
-      })
-      .addCase(updateUserProfile.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-      
-      // Upload Profile Picture
-      .addCase(uploadProfilePicture.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(uploadProfilePicture.fulfilled, (state, action) => {
-        state.loading = false;
-        // Update the profile picture in the state
-        if (state.profile && action.payload.user) {
-          state.profile.profilePicture = action.payload.user.profilePicture;
-          console.log('Updated profile picture in state:', state.profile.profilePicture);
+    name: 'user',
+    initialState,
+    reducers: {
+        clearProfile: (state) => {
+            state.profile = null;
+            state.error = null;
+        },
+        clearCurrentProfile: (state) => {
+            state.currentProfile = null;
+        },
+        clearError: (state) => {
+            state.error = null;
         }
-        state.error = null;
-      })
-      .addCase(uploadProfilePicture.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
-  },
+    },
+    extraReducers: (builder) => {
+        builder
+            // Fetch Current User Profile
+            .addCase(fetchCurrentUserProfile.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchCurrentUserProfile.fulfilled, (state, action) => {
+                state.loading = false;
+                state.currentProfile = action.payload;
+                state.error = null;
+            })
+            .addCase(fetchCurrentUserProfile.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to fetch profile';
+                toast.error(state.error);
+            })
+
+            // Fetch User Profile
+            .addCase(fetchUserProfile.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchUserProfile.fulfilled, (state, action) => {
+                state.loading = false;
+                state.profile = action.payload;
+                state.error = null;
+            })
+            .addCase(fetchUserProfile.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to fetch user profile';
+                toast.error(state.error);
+            })
+
+            // Update User Profile
+            .addCase(updateUserProfile.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateUserProfile.fulfilled, (state, action) => {
+                state.loading = false;
+                state.profile = action.payload;
+                state.error = null;
+                toast.success('Profile updated successfully');
+            })
+            .addCase(updateUserProfile.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to update profile';
+                toast.error(state.error);
+            })
+
+            // Upload Profile Picture
+            .addCase(uploadProfilePicture.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(uploadProfilePicture.fulfilled, (state, action) => {
+                state.loading = false;
+                if (state.currentProfile) {
+                    state.currentProfile.profilePicture = action.payload.profilePicture;
+                }
+                state.error = null;
+                toast.success('Profile picture uploaded successfully');
+            })
+            .addCase(uploadProfilePicture.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to upload profile picture';
+                toast.error(state.error);
+            })
+
+            // Follow User
+            .addCase(followUser.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(followUser.fulfilled, (state, action) => {
+                state.loading = false;
+                if (state.profile) {
+                    state.profile.followers = action.payload.followers;
+                }
+                state.error = null;
+                toast.success('User followed successfully');
+            })
+            .addCase(followUser.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to follow user';
+                toast.error(state.error);
+            })
+
+            // Unfollow User
+            .addCase(unfollowUser.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(unfollowUser.fulfilled, (state, action) => {
+                state.loading = false;
+                if (state.profile) {
+                    state.profile.followers = action.payload.followers;
+                }
+                state.error = null;
+                toast.success('User unfollowed successfully');
+            })
+            .addCase(unfollowUser.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to unfollow user';
+                toast.error(state.error);
+            });
+    }
 });
 
-// Export actions
-export const { 
-  clearProfile, 
-  clearCurrentProfile,
-  setUploadError, 
-  clearUploadError, 
-  setIsUploading 
-} = userSlice.actions;
-
-// Export selectors
+// Selectors
 export const selectCurrentProfile = (state) => state.user.currentProfile;
 export const selectProfile = (state) => state.user.profile;
-export const selectLoading = (state) => state.user.loading;
-export const selectError = (state) => state.user.error;
-export const selectUploadError = (state) => state.user.uploadError;
-export const selectIsUploading = (state) => state.user.isUploading;
+export const selectFollowers = (state) => state.user.followers;
+export const selectFollowing = (state) => state.user.following;
+export const selectUserLoading = (state) => state.user.loading;
+export const selectUserError = (state) => state.user.error;
 
-// Export reducer
+export const { clearProfile, clearCurrentProfile, clearError } = userSlice.actions;
 export default userSlice.reducer; 

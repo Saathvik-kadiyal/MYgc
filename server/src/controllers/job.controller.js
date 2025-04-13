@@ -2,6 +2,7 @@ const Job = require("../models/job.model.js");
 const Company = require("../models/company.model.js");
 const User = require("../models/user.model.js");
 const Notification = require("../models/notification.model.js");
+const socketService = require('../services/socket.service.js');
 
 // POST a new job (Company only)
 exports.postJob = async (req, res) => {
@@ -87,11 +88,6 @@ exports.getCompanyJobs = async (req, res) => {
 // Get all active job listings
 exports.getAllJobs = async (req, res) => {
   try {
-
-    if (req.user.role === "company") {
-        return res.status(403).json({ message: "Companies are not allowed to view job listings" });
-      }
-
     const jobs = await Job.find().populate("company", "username email profilePicture");
     return res.status(200).json({ jobs });
   } catch (error) {
@@ -103,11 +99,6 @@ exports.getAllJobs = async (req, res) => {
 // Get a single job post by ID
 exports.getJobById = async (req, res) => {
   try {
-
-    if (req.user.role === "company") {
-        return res.status(403).json({ message: "Companies are not allowed to view job listings" });
-      }
-
     const { jobId } = req.params;
 
     const job = await Job.findById(jobId)
@@ -128,42 +119,59 @@ exports.getJobById = async (req, res) => {
 
 // Apply to a job (User only)
 exports.applyToJob = async (req, res) => {
-  try {
-    if (req.user.role === "company") {
-      return res.status(403).json({ message: "Companies cannot apply to jobs" });
+    try {
+        const { jobId } = req.params;
+        const userId = req.user._id;
+
+        const job = await Job.findById(jobId);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+
+        // Check if already applied
+        if (job.applications.includes(userId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Already applied to this job'
+            });
+        }
+
+        // Add application
+        job.applications.push(userId);
+        await job.save();
+
+        // Create notification for the company
+        const notification = await Notification.create({
+            type: 'job_application',
+            sender: userId,
+            receiver: job.company,
+            message: `${req.user.username} applied to your job: ${job.title}`,
+            status: 'pending'
+        });
+
+        // Emit real-time notification
+        socketService.emitJobApplication(job.company, {
+            job,
+            application: {
+                user: userId,
+                status: 'pending'
+            },
+            notification
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Application submitted successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
-
-    const jobId = req.params.jobId;
-    const userId = req.user.id;
-
-    const job = await Job.findById(jobId).populate('company', 'username');
-    if (!job) return res.status(404).json({ message: "Job not found" });
-
-    const alreadyApplied = job.applications.some(app => app.user.toString() === userId);
-    if (alreadyApplied) {
-      return res.status(400).json({ message: "You already applied to this job" });
-    }
-
-    job.applications.push({ user: userId });
-    await job.save();
-
-    // Create notification for the company
-    await Notification.create({
-      type: 'job_application',
-      message: `New application received for ${job.title}`,
-      sender: userId,
-      senderModel: 'User',
-      receiver: job.company._id,
-      receiverModel: 'Company',
-      relatedId: jobId,
-      status: 'pending'
-    });
-
-    return res.status(200).json({ message: "Applied successfully" });
-  } catch (err) {
-    console.error("applyToJob error:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
-  }
 };
 
 // Get all applications for a job (Company only)
@@ -225,47 +233,52 @@ exports.getAppliedJobs = async (req, res) => {
 
 // Update application status (accept/reject)
 exports.updateApplicationStatus = async (req, res) => {
-  try {
-    if (req.user.role !== "company") {
-      return res.status(403).json({ message: "Only companies can update application status" });
+    try {
+        const { jobId, userId } = req.params;
+        const { status } = req.body;
+        const companyId = req.user._id;
+
+        const job = await Job.findById(jobId);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+
+        if (job.company.toString() !== companyId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to update this application'
+            });
+        }
+
+        // Create notification for the user
+        const notification = await Notification.create({
+            type: 'application_status',
+            sender: companyId,
+            receiver: userId,
+            message: `Your application for ${job.title} has been ${status}`,
+            status: 'completed'
+        });
+
+        // Emit real-time notification
+        socketService.emitApplicationStatus(userId, {
+            job,
+            status,
+            notification
+        });
+
+        res.json({
+            success: true,
+            message: `Application ${status}`
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
-
-    const { jobId, userId } = req.params;
-    const { status } = req.body;
-    const companyId = req.user.id;
-
-    if (!['pending', 'accepted', 'rejected'].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    const job = await Job.findOne({ _id: jobId, company: companyId })
-      .populate('company', 'username');
-    
-    if (!job) return res.status(404).json({ message: "Job not found or unauthorized" });
-
-    const application = job.applications.find(app => app.user.toString() === userId);
-    if (!application) return res.status(404).json({ message: "Application not found" });
-
-    application.status = status;
-    await job.save();
-
-    // Create notification for the user
-    await Notification.create({
-      type: 'job_application',
-      message: `Your application for ${job.title} at ${job.company.username} has been ${status}`,
-      sender: companyId,
-      senderModel: 'Company',
-      receiver: userId,
-      receiverModel: 'User',
-      relatedId: jobId,
-      status: 'pending'
-    });
-
-    return res.status(200).json({ message: `Application ${status}`, application });
-  } catch (err) {
-    console.error("updateApplicationStatus error:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
-  }
 };
 
 // DELETE /jobs/:jobId (Company only)

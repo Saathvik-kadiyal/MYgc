@@ -45,42 +45,25 @@ const getClientIP = (req) => {
 
 const blockIPMiddleware = async (req, res, next) => {
     try {
-        const userIP = getClientIP(req);
-
-        // Skip blocking for localhost and development
-        if (userIP === '127.0.0.1' || userIP === '::1' || userIP === 'unknown') {
-            return next();
-        }
-
-        const blocked = await BlockedIP.findOne({ 
-            ip: userIP,
-            $or: [
-                { expiresAt: null },  // permanent blocks
-                { expiresAt: { $gt: new Date() } }  // temporary blocks not expired
-            ]
-        });
-
-        if (blocked) {
-            // Update attempt count and timestamp
-            blocked.attempts = (blocked.attempts || 0) + 1;
-            blocked.lastAttempt = new Date();
-            await blocked.save();
-
-            return res.status(403).json({ 
+        // Get client IP
+        const clientIP = req.ip || req.connection.remoteAddress;
+        
+        // Check if IP is blocked
+        const isBlocked = await BlockedIP.findOne({ ip: clientIP });
+        
+        if (isBlocked) {
+            return res.status(403).json({
                 success: false,
-                message: "Access denied. Your IP has been blocked.",
-                reason: blocked.reason || "Security violation",
-                blockedSince: blocked.blockedAt
+                message: "Access denied. Your IP has been blocked due to suspicious activity."
             });
         }
 
         next();
     } catch (error) {
-        console.error("IP Blocking Error:", error);
-        return res.status(500).json({ 
+        console.error("IP blocker middleware error:", error);
+        return res.status(500).json({
             success: false,
-            message: "Internal server error",
-            error: error.message 
+            message: "Server error"
         });
     }
 };

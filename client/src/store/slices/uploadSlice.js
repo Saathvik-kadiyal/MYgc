@@ -1,83 +1,104 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
+import { toast } from 'react-toastify';
 
-// Async thunk for handling file upload
-export const uploadPost = createAsyncThunk(
-  'upload/uploadPost',
-  async ({ file, caption, mediaType }, { rejectWithValue }) => {
-    try {
-      console.log("Uploading file:", file.name, "Type:", file.type, "Size:", file.size);
-      
-      const formData = new FormData();
-      formData.append('media', file);
-      formData.append('caption', caption);
-      formData.append('mediaType', mediaType);
-
-      // Log the FormData contents
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
-      }
-
-      // Make sure we're using the correct endpoint
-      const response = await api.post('/users/posts/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      console.log("Upload response:", response.data);
-      
-      if (!response.data || !response.data.post) {
-        console.error("Invalid response format:", response.data);
-        throw new Error("Invalid response format from server");
-      }
-      
-      return response.data.post;
-    } catch (error) {
-      console.error('Upload error:', error);
-      return rejectWithValue(error.response?.data?.message || 'Error uploading post');
+// Async thunks
+export const uploadMedia = createAsyncThunk(
+    'upload/uploadMedia',
+    async (formData, { rejectWithValue }) => {
+        try {
+            const response = await api.post('/upload/media', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
     }
-  }
+);
+
+export const uploadProfilePicture = createAsyncThunk(
+    'upload/uploadProfilePicture',
+    async (formData, { rejectWithValue }) => {
+        try {
+            const response = await api.post('/upload/profile-picture', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
 );
 
 const initialState = {
-  status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
-  error: null,
-  lastUploadedPost: null,
+    uploadedMedia: null,
+    uploadedProfilePicture: null,
+    loading: false,
+    error: null
 };
 
 const uploadSlice = createSlice({
-  name: 'upload',
-  initialState,
-  reducers: {
-    clearUploadStatus: (state) => {
-      state.status = 'idle';
-      state.error = null;
-      state.lastUploadedPost = null;
+    name: 'upload',
+    initialState,
+    reducers: {
+        clearUploadedMedia: (state) => {
+            state.uploadedMedia = null;
+        },
+        clearUploadedProfilePicture: (state) => {
+            state.uploadedProfilePicture = null;
+        },
+        clearError: (state) => {
+            state.error = null;
+        }
     },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(uploadPost.pending, (state) => {
-        state.status = 'loading';
-        state.error = null;
-      })
-      .addCase(uploadPost.fulfilled, (state, action) => {
-        state.status = 'succeeded';
-        state.lastUploadedPost = action.payload;
-      })
-      .addCase(uploadPost.rejected, (state, action) => {
-        state.status = 'failed';
-        state.error = action.payload;
-      });
-  },
+    extraReducers: (builder) => {
+        builder
+            // Upload Media
+            .addCase(uploadMedia.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(uploadMedia.fulfilled, (state, action) => {
+                state.loading = false;
+                state.uploadedMedia = action.payload;
+                state.error = null;
+                toast.success('Media uploaded successfully');
+            })
+            .addCase(uploadMedia.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to upload media';
+                toast.error(state.error);
+            })
+
+            // Upload Profile Picture
+            .addCase(uploadProfilePicture.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(uploadProfilePicture.fulfilled, (state, action) => {
+                state.loading = false;
+                state.uploadedProfilePicture = action.payload;
+                state.error = null;
+                toast.success('Profile picture uploaded successfully');
+            })
+            .addCase(uploadProfilePicture.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to upload profile picture';
+                toast.error(state.error);
+            });
+    }
 });
 
-export const { clearUploadStatus } = uploadSlice.actions;
-
 // Selectors
-export const selectUploadStatus = (state) => state.upload.status;
+export const selectUploadedMedia = (state) => state.upload.uploadedMedia;
+export const selectUploadedProfilePicture = (state) => state.upload.uploadedProfilePicture;
+export const selectUploadLoading = (state) => state.upload.loading;
 export const selectUploadError = (state) => state.upload.error;
-export const selectLastUploadedPost = (state) => state.upload.lastUploadedPost;
 
+export const { clearUploadedMedia, clearUploadedProfilePicture, clearError } = uploadSlice.actions;
 export default uploadSlice.reducer; 

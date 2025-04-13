@@ -1,42 +1,79 @@
-const User = require('../models/user.model.js');
-const { comparePassword } = require('../config/bcrypt.js');
-const { verifyToken } = require('../config/jwt.js');
+const jwt = require('jsonwebtoken');
+const User = require('../models/user.model');
+const Company = require('../models/company.model');
+const { JWT_SECRET } = require('../config/jwt.js');
 
 const authMiddleware = async (req, res, next) => {
     try {
-        // First try cookie-based authentication
+        // Get token from cookies
         const token = req.cookies.auth_token;
+        if (!token) {
+            return res.status(401).json({ 
+                success: false,
+                message: "Authentication required" 
+            });
+        }
+
+        // Verify token
+        const decoded = jwt.verify(token, JWT_SECRET);
         
-        if (token) {
-            const { valid, expired, decoded } = verifyToken(token);
-            if (!valid) {
-                return res.status(401).json({ message: expired ? "Token has expired" : "Invalid token" });
-            }
-
-            const user = await User.findById(decoded.id);
-            if (!user) {
-                return res.status(401).json({ message: "User not found" });
-            }
-
-            req.user = user;
-            return next();
+        // Get user data based on role
+        let user;
+        if (decoded.role === 'user') {
+            user = await User.findById(decoded.id)
+                .populate('category', 'type experience');
+        } else if (decoded.role === 'company') {
+            user = await Company.findById(decoded.id)
+                .populate('category', 'type description employeeCount');
+        } else {
+            return res.status(401).json({ 
+                success: false,
+                message: "Invalid role in token" 
+            });
         }
 
-        // If no cookie, try manual email & password authentication
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(401).json({ message: "Authentication required" });
+        if (!user) {
+            return res.status(401).json({ 
+                success: false,
+                message: "User not found" 
+            });
         }
 
-        const user = await User.findOne({ email });
-        if (!user || !user.password || !(await comparePassword(password, user.password))) {
-            return res.status(401).json({ message: "Invalid credentials" });
+        // Attach user data to request - matching controller response structure
+        req.user = {
+            id: user._id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            category: user.category
+        };
+
+        // Add role-specific data
+        if (user.role === 'user') {
+            req.user.interestedCategories = user.interestedCategories;
+            req.user.socialMediaLinks = user.socialMediaLinks;
+            req.user.location = user.location;
+            req.user.connectionsCount = user.connectionsCount;
+            req.user.appliedJobs = user.appliedJobs;
+        } else if (user.role === 'company') {
+            req.user.phoneNumber = user.phoneNumber;
+            req.user.jobPostings = user.jobPostings;
         }
 
-        req.user = user;
         next();
     } catch (error) {
-        res.status(500).json({ message: "Authentication failed", error: error.message });
+        console.error("Auth middleware error:", error);
+        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            return res.status(401).json({ 
+                success: false,
+                message: "Invalid or expired token" 
+            });
+        }
+        res.status(500).json({ 
+            success: false,
+            message: "Server error", 
+            error: error.message 
+        });
     }
 };
 

@@ -1,35 +1,56 @@
-import { Outlet } from 'react-router-dom';
+import React from 'react';
+import { Outlet, Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectUser, selectCompany, selectRole } from '../../store/slices/authSlice';
+import { selectUnreadCount } from '../../store/slices/notificationSlice';
 import LeftSidebar from './LeftSidebar';
 import RightSidebar from './RightSidebar';
+import ConnectionRequests from '../connections/ConnectionRequests';
+import Connections from '../connections/Connections';
 
 const MainLayout = () => {
+  const user = useSelector(selectUser);
+  const company = useSelector(selectCompany);
+  const role = useSelector(selectRole);
+  const unreadCount = useSelector(selectUnreadCount);
+  const isCompany = role === 'company';
+
   return (
-    <div className="min-h-screen bg-gray-900 flex justify-center">
-      {/* Main container with LinkedIn-like width */}
-      <div className="w-[1128px] relative">
-        <div className="flex justify-between">
-          
-          {/* Left Sidebar - Fixed width */}
-          <div className="w-[225px] h-screen sticky top-0">
-            <div className="w-full h-full border-r border-gray-800 bg-transparent">
-              <LeftSidebar />
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+      <LeftSidebar isCompany={isCompany} user={user} company={company} />
+      <main className="flex-1 overflow-y-auto">
+        <Outlet context={{ isCompany, user, company, role }} />
+      </main>
+      <RightSidebar isCompany={isCompany} user={user} company={company}>
+        <div className="space-y-8">
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-white">Notifications</h2>
+              <Link
+                to="/notifications"
+                className="relative text-blue-400 hover:text-blue-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </Link>
             </div>
           </div>
-
-          {/* Main Content - Fixed width */}
-          <div className="w-[555px] py-6 bg-gray-900">
-            <Outlet />
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-white">Connection Requests</h2>
+            <ConnectionRequests />
           </div>
-
-          {/* Right Sidebar - Fixed width */}
-          <div className="w-[300px] h-screen sticky top-0">
-            <div className="w-full h-full border-l border-gray-800 bg-transparent">
-              <RightSidebar />
-            </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-white">Your Connections</h2>
+            <Connections />
           </div>
-
         </div>
-      </div>
+      </RightSidebar>
     </div>
   );
 };

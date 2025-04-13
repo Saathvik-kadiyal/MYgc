@@ -1,39 +1,65 @@
-import { Link, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 
-const RightSidebar = () => {
-  const location = useLocation();
+const RightSidebar = ({ isCompany, user, company, children }) => {
+    const profile = isCompany ? company : user;
+    const profileUsername = profile?.username;
 
-  const navItems = [
-    { path: '/messages', label: 'Messages', icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.857L3 20l1.4-3.5A8.96 8.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-      </svg>
-    )},
-    { path: '/search', label: 'Search', icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
-      </svg>
-    )},
-  ];
+    return (
+        <div className="w-[300px] h-screen sticky top-0">
+            <div className="w-full h-full border-l border-gray-800 bg-transparent p-4">
+                {/* Profile Section */}
+                <div className="bg-gray-800 rounded-lg p-4 mb-4">
+                    <div className="flex items-center space-x-3">
+                        <img
+                            src={profile?.profilePicture || '/default-avatar.png'}
+                            alt={profileUsername}
+                            className="w-12 h-12 rounded-full"
+                        />
+                        <div>
+                            <Link
+                                to={`/${profileUsername}`}
+                                className="text-white font-semibold hover:text-blue-400"
+                            >
+                                {profile?.name || profileUsername}
+                            </Link>
+                            <p className="text-gray-400 text-sm">
+                                {isCompany ? 'Company' : 'User'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
-  return (
-    <div className="p-4 space-y-4">
-      {navItems.map((item) => (
-        <Link
-          key={item.path}
-          to={item.path}
-          className={`flex items-center space-x-3 p-3 rounded-lg transition-colors
-            ${location.pathname === item.path 
-              ? 'bg-gray-700 text-white' 
-              : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-        >
-          {item.icon}
-          <span>{item.label}</span>
-        </Link>
-      ))}
-    </div>
-  );
+                {/* Quick Links */}
+                <div className="bg-gray-800 rounded-lg p-4 mb-4">
+                    <h3 className="text-white font-semibold mb-2">Quick Links</h3>
+                    <ul className="space-y-2">
+                        <li>
+                            <Link
+                                to={`/${profileUsername}`}
+                                className="text-gray-400 hover:text-white block"
+                            >
+                                View Profile
+                            </Link>
+                        </li>
+                        <li>
+                            <Link
+                                to="/settings"
+                                className="text-gray-400 hover:text-white block"
+                            >
+                                Settings
+                            </Link>
+                        </li>
+                    </ul>
+                </div>
+
+                {/* Connection Components */}
+                <div className="space-y-8">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default RightSidebar;

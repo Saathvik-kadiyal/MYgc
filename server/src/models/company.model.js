@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Job = require("./job.model.js");
 const Connection = require("./connection.model.js");
 const Notification = require("./notification.model.js");
+const CompanyCategory = require("./companyCategory.model.js");
 
 const companySchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -9,6 +10,7 @@ const companySchema = new mongoose.Schema({
   phoneNumber: { type: String, required: false, default: null },
   password: { type: String, required: true }, // Required for manual authentication
   role: { type: String, required: true },
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'CompanyCategory', required: true },
   profilePicture: { type: String }, // URL to profile picture
   jobPostings: [{ type: mongoose.Schema.Types.ObjectId, ref: "Job" }],
   connections: [{ type: mongoose.Schema.Types.ObjectId, ref: "Connection" }],

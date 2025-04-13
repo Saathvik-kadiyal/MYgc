@@ -1,21 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const jobController = require("../controllers/job.controller.js");
-const authenticate = require("../middleware/auth.middleware.js");
+const authMiddleware = require("../middleware/auth.middleware.js");
 
 // Public routes
 router.get("/", jobController.getAllJobs);
-router.get("/search", authenticate, jobController.searchJobs);
 router.get("/:jobId", jobController.getJobById);
 
 // Protected routes
-router.post("/", authenticate, jobController.postJob);
-router.post("/:jobId/apply", authenticate, jobController.applyToJob);
-router.get("/applied", authenticate, jobController.getAppliedJobs);
-router.get("/:jobId/applications", authenticate, jobController.getJobApplications);
-router.patch("/:jobId/applications/:userId", authenticate, jobController.updateApplicationStatus);
+router.get("/search", authMiddleware, jobController.searchJobs);
+router.post("/", authMiddleware, jobController.postJob);
+router.post("/:jobId/apply", authMiddleware, jobController.applyToJob);
+router.get("/applied", authMiddleware, jobController.getAppliedJobs);
+router.get("/:jobId/applications", authMiddleware, jobController.getJobApplications);
+router.patch("/:jobId/applications/:userId", authMiddleware, jobController.updateApplicationStatus);
 
-router.get("/company", authenticate, jobController.getCompanyJobs);
-router.delete("/:jobId", authenticate, jobController.deleteJob);
+router.get("/company", authMiddleware, jobController.getCompanyJobs);
+router.delete("/:jobId", authMiddleware, jobController.deleteJob);
 
 module.exports = router;
